@@ -54,11 +54,6 @@ void sense_irq() {
     hw_clear_bits(&pio0_hw->irq, irq);
 }
 
-void enable_sense_irq() {
-    irq_set_exclusive_handler(PIO0_IRQ_0, sense_irq);
-    irq_set_enabled(PIO0_IRQ_0, true);
-}
-
 void begin_sense() {
     pio_sm_put_blocking(pio0, 0, 1);
 }
@@ -70,9 +65,7 @@ int main() {
     PIO pio = pio0;
     int sm = 0;
     uint offset = pio_add_program(pio, &distance_sensor_program);
-    distance_sensor_program_init(pio, sm, offset, 0);
-    puts("Enabling irq");
-    enable_sense_irq();
+    distance_sensor_program_init(pio, sm, offset, 0, sense_irq);
 
     uint count = 0;
     while (true) {

@@ -55,8 +55,12 @@ irq wait 1 rel   side 0
      * @param[in] sm state machine to use for the PIO instance
      * @param[in] offset Offset into PIO memory to place the program into
      * @param[in] pins the first of 2 sequential gpios to use. pins = trigger pin, pins + 1 = echo pin.
+     * @param[in] isr Routine executed when the distance sensing starts and ends
+     *            Can be null if you want to enable interrupts yourself.
+     *            check interrupt source sm for sense start and (sm + 1) for sense end.
+     *            the distance measured in centimeters is microseconds between start and end divided by 58 for the HC-SR04
      */
-    static inline void distance_sensor_program_init(PIO pio, uint sm, uint offset, uint pins) {
+    static inline void distance_sensor_program_init(PIO pio, uint sm, uint offset, uint pins, irq_handler_t isr) {
         // Set the trigger pin and echo pin as gpio pins
         pio_gpio_init(pio, pins);
         pio_gpio_init(pio, pins + 1);
@@ -67,6 +71,12 @@ irq wait 1 rel   side 0
         // Enable the IRQ source. 0 for echo high, 1 for echo low
         pio_set_irq0_source_enabled(pio, (pis_interrupt0 + sm), true);
         pio_set_irq0_source_enabled(pio, (pis_interrupt0 + sm + 1), true);
+        if (isr != NULL) {
+            // Set the function to be executed for the isr.
+            irq_set_exclusive_handler(pio == pio0 ? PIO0_IRQ_0 : PIO1_IRQ_0, isr);
+            // Enable the ISR
+            irq_set_enabled(pio == pio0 ? PIO0_IRQ_0 : PIO1_IRQ_1, true);
+        }
         pio_interrupt_clear(pio, sm);
 
         // Build the configuration for the state machine
