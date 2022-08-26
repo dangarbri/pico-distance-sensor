@@ -20,31 +20,53 @@
 ; OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 ; SOFTWARE.
 
+; Usage:
+;  1. Write 0xFFFFFFFF to TX FIFO with pio_sm_put
+;  2. Register IRQ handler to be notified when sense is done (optional)
+;  3. Read from RX fifo, bitwise NOT it, and multiply it by 2. This is
+;     the number of microseconds that the echo pin was high.
+;  4. For HC-SR04, divide this value by 58 to get the measurement in cm
+
 .program distance_sensor
 .side_set 1 ; side set will be used to drive the trigger pin high.
 
 ; Stall on OSR. Wait for software to send a signal to continue
-; by writing to the OSR
-out x, 1      side 0
+; by writing to the OSR. Software is required to write 0xFFFFFFFF
+; for the counter to work properly
+out x, 32              side 0
 ; Use side set to set the trigger pin high
 ; It must remain high for 10us. In this case the clock
 ; divider should be set to achieve 1MHz (1 tick per microsecond)
-nop              side 1 [10]
+; Also use this instruction to set the input shift register to 0xFFFFFFFF
+; We'll use this as a counter for the number of microseconds
+; that have passed since echo went high
+nop                    side 1 [10]
 ; Wait for the echo signal to go high on the echo pin
-wait 1 pin 0     side 0
-; Fire irq 0 to notify software that the echo signal has started
-; Don't wait since the sensor needs to fire the next signal when
-; the measurement is done
-irq nowait 0 rel        side 0
-; Wait for the echo signal to go low on the echo pin
-wait 0 pin 0     side 0
+wait 1 pin 0           side 0
+update_counter:
+; add 1 to the counter and back to sample pin, else fall to completion
+; sense x is non zero, jump back to sampling the echo pin, which is just
+; the next instruction.
+jmp x-- sample_echo    side 0
+
+sample_echo:
+; if pin is high, go back to counter update
+; The counter is updated every 2 clock cycles (2us)
+; so software needs to take that into account. It means the measurement
+; will always be off by 1 microsecond (1/58cm) assuming the sensor
+; is even that accurate.
+; The init function below sets the jump pin to the echo pin at pin + 1
+jmp pin update_counter side 0
+
+; The above jmps will loop updating the counter in scratch x until
+; the sensor drives the echo pin low.
+
+return:
+; Move the counter result into the RX FIFO
+; the sdk function below will enable autopush
+in x 32                side 0
 ; Notify the software via irq that the measurement is done.
-; Software must calculate the time between triggering the sense
-; and getting the IRQ in order to calculate the distance measured
-; Using irq wait so that the software can't trigger another sense
-; until it has processed the interrupt from the completion of the
-; current sense.
-irq wait 1 rel   side 0
+irq 0 rel              side 0
 
 % c-sdk {
     #include "hardware/clocks.h"
@@ -70,14 +92,13 @@ irq wait 1 rel   side 0
         pio_sm_set_consecutive_pindirs(pio, sm, pins + 1, 1, false);
         // Enable the IRQ source. 0 for echo high, 1 for echo low
         pio_set_irq0_source_enabled(pio, (pis_interrupt0 + sm), true);
-        pio_set_irq0_source_enabled(pio, (pis_interrupt0 + sm + 1), true);
         if (isr != NULL) {
             // Set the function to be executed for the isr.
             irq_set_exclusive_handler(pio == pio0 ? PIO0_IRQ_0 : PIO1_IRQ_0, isr);
             // Enable the ISR
             irq_set_enabled(pio == pio0 ? PIO0_IRQ_0 : PIO1_IRQ_1, true);
+            pio_interrupt_clear(pio, sm);
         }
-        pio_interrupt_clear(pio, sm);
 
         // Build the configuration for the state machine
         pio_sm_config config = distance_sensor_program_get_default_config(offset);
@@ -87,7 +108,10 @@ irq wait 1 rel   side 0
         sm_config_set_in_pins(&config, pins + 1);
         // Set up autopull to pull the TX Fifo into the OSR so assembly
         // does not need to waste an instruction with PULL
-        sm_config_set_out_shift(&config, true, true, 1);
+        sm_config_set_out_shift(&config, true, true, 32);
+        sm_config_set_in_shift(&config, true, true, 32);
+        // Set the jump pin for the counter to work
+        sm_config_set_jmp_pin(&config, pins + 1);
 
         // Desired frequency is 1MHz, or 1 microsecond per cycle.
         float freq = 1000000;
