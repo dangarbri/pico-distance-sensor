@@ -28,13 +28,9 @@
 #include "sensor.pio.h"
 #include "hardware/pio.h"
 
-#define SENSE_START_IRQ 0b0001
-#define SENSE_END_IRQ   0b0010
-#define PIO_SM_2_IRQ 0b0100
-#define PIO_SM_3_IRQ 0b1000
+#define SENSE_COMPLETE_IRQ   0b0001
 
-volatile uint64_t sense_start_time = 0;
-volatile uint64_t sense_end_time = 0;
+volatile uint32_t pio_counter = 0;
 
 void print_debug_info() {
     printf("FSTAT: 0x%08X\n", pio0_hw->fstat);
@@ -44,18 +40,19 @@ void print_debug_info() {
 void sense_irq() {
     uint32_t irq = pio0_hw->irq;
     printf("Working with irq: 0x%08X\n", irq);
-    if (irq & SENSE_START_IRQ) {
-        sense_start_time = time_us_64();
-    }
-    if (irq & SENSE_END_IRQ) {
-        sense_end_time = time_us_64();
+    if (irq & SENSE_COMPLETE_IRQ) {
+        int count = pio_sm_get_rx_fifo_level(pio0, 0);
+        printf("There are %d items in the rx fifo\n", count);
+        if (count > 0) {
+            pio_counter = (~pio_sm_get(pio0, 0) * 2);
+        }
     }
 
     hw_clear_bits(&pio0_hw->irq, irq);
 }
 
 void begin_sense() {
-    pio_sm_put_blocking(pio0, 0, 1);
+    pio_sm_put_blocking(pio0, 0, 0xFFFFFFFF);
 }
 
 int main() {
@@ -72,16 +69,13 @@ int main() {
         printf("Sense count %d: \n", count++);
         begin_sense();
         // Wait for ISR to notify us that the sense is done.
-        while (sense_end_time == 0) {
-            sleep_ms(50);
+        while (pio_counter == 0) {
+            sleep_us(100);
         }
-        uint64_t elapsed_time = sense_end_time - sense_start_time;
-        uint64_t distance = (elapsed_time) / 58;
-        printf("Start time: %lld, End Time: %lld\n", sense_start_time, sense_end_time);
-        printf("Sensed %lldcm\n", distance);
+        printf("Got counter value %d\n", pio_counter);
+        printf("Sensor distance %d\n", pio_counter / 58);
+        pio_counter = 0;
 
-        // Reset sense time for the next loop
-        sense_end_time = 0;
         sleep_ms(1000);
     }
 }
