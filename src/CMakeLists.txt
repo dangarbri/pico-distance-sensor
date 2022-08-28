@@ -1,13 +1,8 @@
-add_executable(program
-    main.cpp
+add_library(distance-sensor
+    distance_sensor.cpp
 )
 
-pico_generate_pio_header(program ${CMAKE_CURRENT_LIST_DIR}/sensor.pio)
+pico_generate_pio_header(distance-sensor ${CMAKE_CURRENT_LIST_DIR}/sensor.pio)
 
-pico_enable_stdio_usb(program 1)
-pico_enable_stdio_uart(program 0)
-
-pico_add_extra_outputs(program)
-
-target_link_libraries(program pico_stdlib hardware_pio hardware_irq)
+target_link_libraries(distance-sensor pico_stdlib hardware_pio hardware_irq)
 
