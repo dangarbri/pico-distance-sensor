@@ -29,8 +29,25 @@
  * pio program
  */
 std::map<PIO, uint> DistanceSensor::_PioOffsets;
+DistanceSensor* DistanceSensor::_sensor_map[2][4] = {};
+
+static void _SensorIrq() {
+    // TODO: Write me
+}
 
 DistanceSensor::DistanceSensor(uint trigger_gpio, PIO pio, uint sm) {
+    // Initialize the program and set up the IRQ handler to save the
+    // distance reading to this->distance.
+    _InitializeSensorForGpio(trigger_gpio, pio, sm, _SensorIrq);
+    DistanceSensor::_sensor_map[pio][sm] = this;
+}
+
+void DistanceSensor::_InitializeSensorForGpio(uint gpio, PIO pio, uint sm, irq_handler_t handler) {
+    // Load the program and get the offset
+    // Note this is safe to call even if the sensor was already loaded, it will not reload it.
+    uint offset = _LoadSensorProgram(pio);
+    // Initialize the program in the PIO
+    distance_sensor_program_init(pio, sm, offset, gpio, handler);
 }
 
 uint DistanceSensor::_LoadSensorProgram(PIO pio) {

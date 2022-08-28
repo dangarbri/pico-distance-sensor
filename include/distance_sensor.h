@@ -1,6 +1,7 @@
 #pragma once
 
 #include <map>
+#include "hardware/pio.h"
 
 /**
  * Interface for using an HC-SR04 distance sensor. Has
@@ -19,7 +20,36 @@ public:
      */
     DistanceSensor(uint trigger_gpio, PIO pio, uint sm);
 
+    /**
+     * Last distance reading
+     */
+    uint distance = 0;
+
+    /**
+     * PIO bound to this sensor
+     */
+    PIO pio;
+
+    /**
+     * State machine this sensor is running on
+     */
+    uint sm;
+
 protected:
+    /**
+     * My solution to the "C++ IRQ problem" The problem is that
+     * an IRQ needs to be a plain C function, so I can't have a
+     * function that modifies the running instance of the
+     * DistanceSensor that triggered the request. There's no way
+     * for the IRQ to know which sensor sent the request.
+     *
+     * But I can store the instance of the distance sensor
+     * in a map, so the sensor running on PIO 0, state machine 1
+     * will map to _sensor_map[0][1]. Thus the ISR can access the
+     * sensor instance to provide a reading
+     */
+    static DistanceSensor* _sensor_map[2][4];
+
     /**
      * Offset into PIO memory for the sensor program
      * Cached here so we don't waste space in PIO memory by reloading it.
@@ -27,6 +57,15 @@ protected:
      *       using std::map, not sure how big that is.
      */
     static std::map<PIO, uint> _PioOffsets;
+
+    /**
+     * Initializes the distance program to run on the given gpio pin
+     * @param[in] trigger_gpio GPIO connected to the trigger pin
+     * @param[in] pio PIO block to use, Either pio0 or pio1
+     * @param[in] sm The state machine to use, 0 to 3
+     * @param[in] handler Function to execute when distance is sampled
+     */
+    static void _InitializeSensorForGpio(uint gpio, PIO pio, uint sm, irq_handler_t handler);
 
     /**
      * Checks if the sensor program is already loaded in the PIO
