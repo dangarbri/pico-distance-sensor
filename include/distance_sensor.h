@@ -1,11 +1,9 @@
 #pragma once
 
-#include <map>
 #include "hardware/pio.h"
 
 /**
- * Interface for using an HC-SR04 distance sensor. Has
- * not been tested with other sensors
+ * Interface for using an HC-SR04 distance sensor. Has not been tested with other sensors
  */
 class DistanceSensor {
 public:
@@ -18,12 +16,27 @@ public:
      * @param[in] pio PIO block to use, Either pio0 or pio1
      * @param[in] sm The state machine to use, 0 to 3
      */
-    DistanceSensor(uint trigger_gpio, PIO pio, uint sm);
+    DistanceSensor(PIO pio, uint sm, uint trigger_gpio);
+
+    /**
+     * Gets the distance sensor mapped to the given state machine
+     * @param[in] pio 0 or 1
+     * @param[in] sm 0 to 4
+     * @returns NULL or DistanceSensor pointer
+     */
+    static DistanceSensor* GetMappedSensor(uint pio, uint sm);
+
+    /**
+     * Trigger a sensor read
+     */
+    void TriggerRead();
 
     /**
      * Last distance reading
      */
-    uint distance = 0;
+    uint32_t distance = 0;
+
+    volatile bool is_sensing = false;
 
     /**
      * PIO bound to this sensor
@@ -53,10 +66,8 @@ protected:
     /**
      * Offset into PIO memory for the sensor program
      * Cached here so we don't waste space in PIO memory by reloading it.
-     * @TODO might consume less space to implement our own cache instead of
-     *       using std::map, not sure how big that is.
      */
-    static std::map<PIO, uint> _PioOffsets;
+    static uint _PioOffsets[2];
 
     /**
      * Initializes the distance program to run on the given gpio pin

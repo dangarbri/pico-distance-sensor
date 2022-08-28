@@ -15,3 +15,8 @@ uint pio_add_program(PIO pio, const pio_program_t*  program) {
 uint32_t pio_sm_get(PIO pio, uint sm) {
     return 0xDEADBEEF;
 }
+
+bool pio_interrupt_get(PIO pio, uint sm) {
+    return true;
+}
+

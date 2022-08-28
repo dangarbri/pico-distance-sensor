@@ -62,6 +62,7 @@ int main() {
     PIO pio = pio0;
     int sm = 0;
     uint offset = pio_add_program(pio, &distance_sensor_program);
+    printf("Loaded program to pio offset 0x%08X\n", offset);
     distance_sensor_program_init(pio, sm, offset, 0, sense_irq);
 
     uint count = 0;

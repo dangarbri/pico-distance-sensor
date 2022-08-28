@@ -28,6 +28,13 @@
 #include <cstdio>
 
 /**
+ * Simulate triggering the IRQ when the test calls pio_sm_put
+ */
+void pio_sm_put(PIO pio, uint sm, uint32_t data) {
+    
+}
+
+/**
  * Verify the pio program is loaded in memory
  */
 void test_IsProgramLoaded_AfterLoading() {

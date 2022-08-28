@@ -69,6 +69,7 @@ in x 32                side 0
 irq 0 rel              side 0
 
 % c-sdk {
+    #include "hardware/pio.h"
     #include "hardware/clocks.h"
 
     /**
@@ -91,7 +92,7 @@ irq 0 rel              side 0
         // Set the echo pin as an input pin
         pio_sm_set_consecutive_pindirs(pio, sm, pins + 1, 1, false);
         // Enable the IRQ source. 0 for echo high, 1 for echo low
-        pio_set_irq0_source_enabled(pio, (pis_interrupt0 + sm), true);
+        pio_set_irq0_source_enabled(pio, (enum pio_interrupt_source)(pis_interrupt0 + sm), true);
         if (isr != NULL) {
             // Set the function to be executed for the isr.
             irq_set_exclusive_handler(pio == pio0 ? PIO0_IRQ_0 : PIO1_IRQ_0, isr);
