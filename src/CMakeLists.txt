@@ -1,3 +1,4 @@
+include_directories(../include)
 add_library(distance-sensor
     distance_sensor.cpp
 )
