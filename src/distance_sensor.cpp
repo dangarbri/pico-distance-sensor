@@ -32,7 +32,20 @@ std::map<PIO, uint> DistanceSensor::_PioOffsets;
 DistanceSensor* DistanceSensor::_sensor_map[2][4] = {};
 
 static void _SensorIrq() {
-    // TODO: Write me
+    // Check PIO0 interrupt sources
+    for (uint i = 0; i < 4; i++) {
+        // If the interrupt is from pio0 state machine i, then get the distance from
+        // that PIO's state machine and write it to the distance sensor
+        if (pio_interrupt_get(pio0, i)) {
+            DistanceSensor::GetMappedSensor(0, i)->distance = pio_sm_get(pio0, i);
+        };
+
+        // If the interrupt is from pio1 state machine i, then get the distance from
+        // that PIO's state machine and write it to the distance sensor
+        if (pio_interrupt_get(pio1, i)) {
+            DistanceSensor::GetMappedSensor(1, i)->distance = pio_sm_get(pio1, i);
+        };
+    }
 }
 
 DistanceSensor::DistanceSensor(uint trigger_gpio, PIO pio, uint sm) {
@@ -71,5 +84,13 @@ bool DistanceSensor::_IsProgramLoaded(PIO pio) {
     // If it's not the ".end" iterator, that means it was found.
     bool found = iter != DistanceSensor::_PioOffsets.end();
     return found;
+}
+
+DistanceSensor* DistanceSensor::GetMappedSensor(uint pio, uint sm) {
+    return _sensor_map[pio][sm];
+}
+
+void TriggerRead() {
+    pio_sm_put(pio, sm, 1);
 }
 
