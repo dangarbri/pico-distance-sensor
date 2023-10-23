@@ -51,5 +51,5 @@ include_directories(
 # Add the subdirectory so the library gets compiled
 add_subdirectory(pico-distance-sensor)
 # include it in your link libraries
-target_link_libraries(your_program pico_stdlib pico-distance-sensor)
+target_link_libraries(your_program pico_stdlib distance-sensor)
 ```
