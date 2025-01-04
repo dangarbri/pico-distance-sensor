@@ -23,7 +23,7 @@ int main() {
     hcsro4.TriggerRead();
     
     // wait for sensor to get a result
-    while (hcsr04.is_sensing) {
+    while (hcsro4.is_sensing) {
         sleep_us(100);
     }
 
